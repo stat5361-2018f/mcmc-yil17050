@@ -1,0 +1,67 @@
+---
+title: "Normal mixture revisited HW7"
+author: "Yichu Li.  "
+date: "10/26/2018"
+output:
+  pdf_document: default
+  html_document: default
+papersize: letter
+fontsize: 11pt
+abstract: |
+  In the project, we want design an MCMC using the Gibbs sampling approach to estimate five parameters and then plot the histogram of the result. 
+---
+
+
+
+# 6.3.1 Normal mixture revisited
+
+The likelihood function
+$$(x;  \delta,\sigma^{2}_{1},\sigma^{2}_{2},  \mu_{1},  \mu_{2})=\prod^{n}_{i=1}\left[\delta N(\mu_{1},\sigma^{2}_{1})+(1-\delta)N(\mu_{2}, \sigma^{2}_{2})\right]$$
+```{r, warning=FALSE}
+delta <- 0.7 
+n <- 100
+set.seed(123)
+u <- rbinom(n, prob = delta, size = 1)
+sample <- rnorm(n, ifelse(u == 1, 7, 10), 0.5)
+
+library("invgamma")
+library("HI")
+
+log.pos <-function(u1,u2,s1,s2,d,x=sample){
+p1<-d*dnorm(x,u1,sqrt(s1))
+p2<-(1-d)*dnorm(x,u2,sqrt(s2))
+ logL <- sum(log(p1+p2))
+ prior.u1 <- dnorm(u1,0,10)
+ prior.u2 <- dnorm(u2,0,10)
+ prior.s1 <- dinvgamma(s1,0.5,10)
+ prior.s2 <- dinvgamma(s2,0.5,10)
+ sum(logL+log(prior.u1)+log(prior.u2)+log(prior.s1)+log(prior.s2))
+}
+
+gib_function <- function(d_,u1_,u2_,s1_,s2_,x=sample,n){
+  gib<- matrix(nrow=n, ncol=5)
+  ini <- c(d_,u1_,u2_,s1_,s2_)
+  for(i in 1:n ){
+     gib[i,1] <- arms(d_,log.pos,function(x,...)(x>0)*(x<1),1,u1=ini[2],u2=ini[3],s1=ini[4],s2=ini[5])
+     ini[1] <-gib[i,1]
+     gib[i,2] <- arms(u1_,log.pos,function(x,...)(x>-50)*(x<50),1,d=ini[1],u2=ini[3],s1=ini[4],s2=ini[5])
+     ini[2] <-gib[i,2]
+     gib[i,3] <- arms(u2_,log.pos,function(x,...)(x>-50)*(x<50),1,d=ini[1],u1=ini[2],s1=ini[4],s2=ini[5])
+     ini[3] <-gib[i,3]
+     gib[i,4] <- arms(s1_,log.pos,function(x,...)(x>0)*(x<50),1,d=ini[1],u1=ini[2],u2=ini[3],s2=ini[5])
+     ini[4] <-gib[i,4]
+     gib[i,5] <- arms(s2_,log.pos,function(x,...)(x>0)*(x<50),1,d=ini[1],u1=ini[2],u2=ini[3],s1=ini[4])
+     ini[5] <-gib[i,5]
+    }
+    gib
+}
+
+gibr<-gib_function(0.5,5,5,1,1,sample,10000)[-(1:1500)]
+par(mfrow=c(2,3))
+hist(gibr[,1],main="Histogram",xlab="delta")
+hist(gibr[,2],main="Histogram",xlab="mu[1]")
+hist(gibr[,3],main="Histogram",xlab="mu[2]")
+hist(gibr[,4],main="Histogram",xlab="sigma[1]")
+hist(gibr[,5],main="Histogram",xlab="sigma[2]")
+
+```
